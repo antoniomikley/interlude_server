@@ -1,9 +1,6 @@
-mod authorization;
-mod connection_utils;
-
-use connection_utils::handle_connection;
 use hyper::{server::conn::http1, service::service_fn};
 use hyper_util::rt::TokioIo;
+use interlude::connection_utils::handle_connection;
 use std::net::SocketAddr;
 
 const PORT: u16 = 5000;
