@@ -79,7 +79,7 @@ impl TidalApi {
             access_token: RwLock::new(
                 AccessToken::new(client, credentials, Self::AUTH_ENDPOINT)
                     .await
-                    .unwrap(),
+                    .expect("Could not create new client. The credentials for the tidal API are probably wrong."),
             ),
         }
     }
@@ -92,7 +92,7 @@ impl TidalApi {
             }
         }
         let mut token_w = self.access_token.write().await;
-        token_w.refresh(&self.client, &self.creds).await.unwrap();
+        token_w.refresh(&self.client, &self.creds).await?;
         return Ok(token_w.token.clone());
     }
 
@@ -115,19 +115,18 @@ impl TidalApi {
                 id,
                 cc.alpha2
             ))
-            .bearer_auth(self.get_bearer_token().await.unwrap())
+            .bearer_auth(self.get_bearer_token().await?)
             .send()
-            .await
-            .unwrap();
+            .await?;
 
-        let results: QueryResult = serde_json::from_str(&response.text().await.unwrap()).unwrap();
+        let results: QueryResult = serde_json::from_str(&response.text().await?)?;
         let song_attrs = match results.data.attributes {
             Attributes::Tracks(attrs) => attrs,
             Attributes::Albums(_) => {
-                bail!("")
+                bail!("Something went terribly wrong.")
             }
             Attributes::Artists(_) => {
-                bail!("")
+                bail!("Something went terribly wrong.")
             }
         };
         let song_name = song_attrs.title;
@@ -140,12 +139,12 @@ impl TidalApi {
         for include in results.included.unwrap() {
             match include.attributes {
                 Attributes::Tracks(_) => {
-                    bail!("")
+                    bail!("Includes should not contain tracks, but somehow they do.")
                 }
                 Attributes::Albums(attrs) => albums.push(AlbumData::with_limited_info(
                     &attrs.title,
                     &attrs.upc,
-                    iso8601_to_seconds(&attrs.duration).unwrap(),
+                    iso8601_to_seconds(&attrs.duration)?,
                 )),
                 Attributes::Artists(attrs) => artists.push(ArtistData::without_albums(&attrs.name)),
             }
@@ -177,11 +176,8 @@ impl TidalApi {
                 )
                 .as_str(),
             )
-            .await
-            .unwrap();
+            .await?;
 
-        println!("{}", &response);
-        println!("------------");
         let results: QueryResult = serde_json::from_str(&response).unwrap();
         let album_attrs = match results.data.attributes {
             Attributes::Albums(attrs) => attrs,
