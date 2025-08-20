@@ -6,6 +6,18 @@ pub enum LinkType {
     Spotify,
     Tidal,
     AppleMusic,
+    Deezer
+}
+
+impl LinkType {
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Tidal => String::from("Tidal"),
+            Self::Spotify => String::from("Spotify"),
+            Self::Deezer => String::from("Deezer"),
+            Self::AppleMusic => String::from("AppleMusic"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Copy, PartialEq)]
@@ -38,15 +50,18 @@ impl ShareLink {
                 return format!("https://open.spotify.com/{}/{}", obj, self.id);
             },
             LinkType::AppleMusic => {
-                return format!("https://music.apple.com/{}/{}/{}", self.country_code.alpha2.to_ascii_lowercase(), obj, self.id)
+                todo!()
+            }
+            LinkType::Deezer => {
+                todo!()
             }
         }
     }
 
-    pub fn new(link_type: LinkType, share_obj: ShareObject, id: &str, country_code: CountryCode) -> Self {
+    pub fn new(link_type: LinkType, share_obj: ShareObject, id: &str, country_code: &CountryCode) -> Self {
         Self {
             link_type,
-            country_code,
+            country_code: country_code.clone(),
             share_obj,
             id: id.to_owned()
         }
@@ -123,6 +138,9 @@ impl ShareLink {
                     },
                     _ => {},
                 }
+            }
+            Some(LinkType::Deezer) => {
+                todo!();
             }
             None => {}, // Cannot be None at this point. Function failes already before.
         }

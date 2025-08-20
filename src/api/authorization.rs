@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    collections::HashMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -35,8 +38,9 @@ impl AccessToken {
             .form(&form)
             .basic_auth(&credentials.client_id, Some(&credentials.client_secret))
             .send()
-            .await?.text().await?;
-        println!("{}", &response);
+            .await?
+            .text()
+            .await?;
         let body: ResponseBody = serde_json::from_str(&response)?;
 
         Ok(Self {

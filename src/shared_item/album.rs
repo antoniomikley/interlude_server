@@ -2,7 +2,7 @@ use super::{artist::ArtistData, norm::normalize_album_title, SongData};
 
 #[derive(Clone, Debug)]
 pub struct AlbumData {
-    display_name: String,
+    pub display_name: String,
     norm_name: String,
     songs: Vec<SongData>,
     artists: Vec<ArtistData>,

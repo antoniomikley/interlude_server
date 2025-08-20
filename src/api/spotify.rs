@@ -71,7 +71,7 @@ impl SpotifyApi {
         token_w.refresh(&self.client, &self.creds).await.unwrap();
         return Ok(token_w.token.clone());
     }
-    pub async fn get_song_data(&self, song_link: ShareLink) -> anyhow::Result<SongData> {
+    pub async fn get_song_data(&self, song_link: &ShareLink) -> anyhow::Result<SongData> {
         let response = self
             .make_get_request(
                 format!(
@@ -107,7 +107,7 @@ impl SpotifyApi {
         ))
     }
 
-    pub async fn get_album_data(&self, album_link: ShareLink) -> anyhow::Result<AlbumData> {
+    pub async fn get_album_data(&self, album_link: &ShareLink) -> anyhow::Result<AlbumData> {
         #[derive(Deserialize, Clone, Debug)]
         struct AlbumQuery {
             name: String,
@@ -155,8 +155,8 @@ impl SpotifyApi {
 
     pub async fn get_album_link(
         &self,
-        album_data: AlbumData,
-        country_code: CountryCode,
+        album_data: &AlbumData,
+        country_code: &CountryCode,
     ) -> anyhow::Result<ShareLink> {
         #[derive(Deserialize, Debug, Clone)]
         struct AlbumSearch {
@@ -186,14 +186,14 @@ impl SpotifyApi {
             LinkType::Spotify,
             ShareObject::Album,
             &result.albums.items[0].id,
-            country_code,
+            &country_code,
         ))
     }
 
     pub async fn get_song_link(
         &self,
-        song_data: SongData,
-        country_code: CountryCode,
+        song_data: &SongData,
+        country_code: &CountryCode,
     ) -> anyhow::Result<ShareLink> {
         #[derive(Deserialize, Debug, Clone)]
         struct TrackSearch {
@@ -216,15 +216,15 @@ impl SpotifyApi {
             .await
             .unwrap();
         let result: TrackSearch = serde_json::from_str(&response).unwrap();
-        if result.tracks.items.len() != 1 {
-            bail!("Found no match or found multiple matches. Both is bad.")
+        if result.tracks.items.len() == 0 {
+            bail!("Found no match.")
         }
 
         Ok(ShareLink::new(
             LinkType::Spotify,
             ShareObject::Song,
             &result.tracks.items[0].id,
-            country_code,
+            &country_code,
         ))
     }
 }

@@ -2,7 +2,7 @@ use super::{album::AlbumData, artist::ArtistData, norm::normalize_song_title};
 
 #[derive(Debug, Clone)]
 pub struct SongData {
-    display_name: String,
+    pub display_name: String,
     norm_name: String,
     pub isrc: String,
     duration: u64,

@@ -96,7 +96,7 @@ impl TidalApi {
         return Ok(token_w.token.clone());
     }
 
-    pub async fn get_song_data(&self, song_link: ShareLink) -> anyhow::Result<SongData> {
+    pub async fn get_song_data(&self, song_link: &ShareLink) -> anyhow::Result<SongData> {
         if song_link.link_type != LinkType::Tidal {
             bail!("The provided link is not from Tidal.");
         }
@@ -155,7 +155,7 @@ impl TidalApi {
         ))
     }
 
-    pub async fn get_album_data(&self, album_link: ShareLink) -> anyhow::Result<AlbumData> {
+    pub async fn get_album_data(&self, album_link: &ShareLink) -> anyhow::Result<AlbumData> {
         if album_link.link_type != LinkType::Tidal {
             bail!("The provided link is not from Tidal.");
         }
@@ -250,7 +250,6 @@ impl TidalApi {
             .await
             .unwrap();
 
-        println!("{}", &response);
         let results: QueryResult = serde_json::from_str(&response).unwrap();
         let artist_attrs = match results.data.attributes {
             Attributes::Artists(attrs) => attrs,
@@ -303,7 +302,6 @@ impl TidalApi {
             match results.links.next {
                 None => break,
                 Some(link) => {
-                    println!("{}", albums.len());
                     let response = self
                         .make_get_request(format!("{}{}", Self::BASE_URL, &link).as_str())
                         .await
@@ -325,15 +323,14 @@ impl TidalApi {
             .send()
             .await
             .unwrap();
-        println!("{}", response.status());
 
         Ok(response.text().await.unwrap())
     }
 
     pub async fn get_song_link(
         &self,
-        song_data: SongData,
-        country_code: CountryCode,
+        song_data: &SongData,
+        country_code: &CountryCode,
     ) -> anyhow::Result<ShareLink> {
         let response = self
             .make_get_request(
@@ -347,14 +344,13 @@ impl TidalApi {
             )
             .await
             .unwrap();
-        println!("{}", response);
 
         let results: FilterQuery = serde_json::from_str(&response).unwrap();
         for item in results.data {
             let share_link =
                 ShareLink::new(LinkType::Tidal, ShareObject::Song, &item.id, country_code);
-            let sd = self.get_song_data(share_link.clone()).await.unwrap();
-            if sd == song_data {
+            let sd = self.get_song_data(&share_link).await.unwrap();
+            if sd == song_data.clone() {
                 return Ok(share_link);
             }
         }
@@ -363,8 +359,8 @@ impl TidalApi {
 
     pub async fn get_album_link(
         &self,
-        album_data: AlbumData,
-        country_code: CountryCode,
+        album_data: &AlbumData,
+        country_code: &CountryCode,
     ) -> anyhow::Result<ShareLink> {
         let response = self
             .make_get_request(
@@ -378,14 +374,13 @@ impl TidalApi {
             )
             .await
             .unwrap();
-        println!("{}", response);
 
         let results: FilterQuery = serde_json::from_str(&response).unwrap();
         for item in results.data {
             let share_link =
-                ShareLink::new(LinkType::Tidal, ShareObject::Album, &item.id, country_code);
-            let ad = self.get_album_data(share_link.clone()).await.unwrap();
-            if ad == album_data {
+                ShareLink::new(LinkType::Tidal, ShareObject::Album, &item.id, &country_code);
+            let ad = self.get_album_data(&share_link).await.unwrap();
+            if &ad == album_data {
                 return Ok(share_link);
             }
         }
