@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tokio::sync::RwLock;
 
 use anyhow::bail;
@@ -62,10 +64,11 @@ struct ArtistAttrs {
     pub name: String,
 }
 
+#[derive(Clone)]
 pub struct TidalApi {
     client: Client,
     creds: ClientCredentials,
-    access_token: RwLock<AccessToken>,
+    access_token: Arc<RwLock<AccessToken>>,
 }
 
 impl TidalApi {
@@ -76,11 +79,11 @@ impl TidalApi {
         Self {
             client: client.clone(),
             creds: credentials.clone(),
-            access_token: RwLock::new(
+            access_token: Arc::new(RwLock::new(
                 AccessToken::new(client, credentials, Self::AUTH_ENDPOINT)
                     .await
                     .expect("Could not create new client. The credentials for the tidal API are probably wrong."),
-            ),
+            )),
         }
     }
 

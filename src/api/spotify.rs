@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::bail;
 use reqwest::Client;
@@ -38,10 +38,11 @@ struct Item {
     id: String,
 }
 
+#[derive(Clone)]
 pub struct SpotifyApi {
     client: Client,
     creds: ClientCredentials,
-    access_token: RwLock<AccessToken>,
+    access_token: Arc<RwLock<AccessToken>>,
 }
 
 impl SpotifyApi {
@@ -52,11 +53,11 @@ impl SpotifyApi {
         Self {
             client: client.clone(),
             creds: credentials.clone(),
-            access_token: RwLock::new(
+            access_token: Arc::new(RwLock::new(
                 AccessToken::new(client, credentials, Self::AUTH_ENDPOINT)
                     .await
                     .unwrap(),
-            ),
+            )),
         }
     }
 

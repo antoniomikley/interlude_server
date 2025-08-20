@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::bail;
 use reqwest::Client;
@@ -50,6 +50,7 @@ impl Link {
     }
 }
 
+#[derive(Clone)]
 pub struct ApiClients {
     spotify: Option<SpotifyApi>,
     tidal: Option<TidalApi>,
@@ -77,38 +78,39 @@ impl ApiClients {
         }
     }
 
-    pub fn get_supported_clients(self) -> HashMap<String, ApiClient> {
+    pub fn get_supported_clients(&self) -> HashMap<String, ApiClient> {
         let mut supported_apis: HashMap<String, ApiClient> = HashMap::new();
 
+        let cloned = self.clone();
         if self.spotify.is_some() {
             supported_apis.insert(
                 LinkType::Spotify.to_string(),
-                ApiClient::Spotify(self.spotify.unwrap()),
+                ApiClient::Spotify(cloned.spotify.unwrap()),
             );
         }
         if self.tidal.is_some() {
             supported_apis.insert(
                 LinkType::Tidal.to_string(),
-                ApiClient::Tidal(self.tidal.unwrap()),
+                ApiClient::Tidal(cloned.tidal.unwrap()),
             );
         }
         if self.deezer.is_some() {
             supported_apis.insert(
                 LinkType::Deezer.to_string(),
-                ApiClient::Deezer(self.deezer.unwrap()),
+                ApiClient::Deezer(cloned.deezer.unwrap()),
             );
         }
         if self.apple_music.is_some() {
             supported_apis.insert(
                 LinkType::AppleMusic.to_string(),
-                ApiClient::AppleMusic(self.apple_music.unwrap()),
+                ApiClient::AppleMusic(cloned.apple_music.unwrap()),
             );
         }
         return supported_apis;
     }
 }
 
-pub async fn convert(url: String, api_clients: ApiClients) -> anyhow::Result<String> {
+pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> anyhow::Result<String> {
     let share_link = ShareLink::from_url(&url)?;
     let supported_apis = api_clients.get_supported_clients();
 

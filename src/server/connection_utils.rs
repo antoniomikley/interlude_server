@@ -1,22 +1,28 @@
 use http_body_util::{BodyExt, Empty, Full, combinators::BoxBody};
-use std::{fmt::Debug, path::Path, str};
+use urlencoding::decode_binary;
+use std::{fmt::Debug, path::Path, str, sync::Arc};
 
 use hyper::{
     Error as HyperError, Method, Request, Response, Result as HyperResult, StatusCode,
     body::{Body, Bytes},
 };
 
-use crate::authorization::check_authorization;
+use crate::api::conversion::{convert, ApiClients};
+
+use super::authorization::check_authorization;
+
 
 pub async fn handle_connection<B: Body + Debug>(
     req: Request<B>,
+    api_clients: Arc<ApiClients>,
+    api_secret: &str
 ) -> HyperResult<Response<BoxBody<Bytes, HyperError>>>
 where
     <B as Body>::Error: Debug,
 {
     let headers = req.headers();
     let authorization_header = headers.get("Authorization");
-    if let Err(_) = check_authorization(authorization_header) {
+    if check_authorization(authorization_header, api_secret).is_err() {
         return Ok(forbidden("Authorization failed"));
     }
 
@@ -30,25 +36,33 @@ where
     match (req.method(), path_resource) {
         (&Method::GET, "translate") => {
             let link = match path_it.next() {
-                Some(link) => link.to_str().unwrap(),
+                Some(link) => {
+                    let decoded = decode_binary(link.as_encoded_bytes());
+                    String::from_utf8_lossy(&decoded).into_owned()
+                },
                 _none => return Ok(bad_request("Link must be provided")),
             };
+            let return_link = convert(&link, api_clients).await;
+            match return_link {
+                Ok(return_link) => {
+                    let body = full(Bytes::from(return_link));
+                    let response = Response::builder()
+                        .status(StatusCode::OK)
+                        .header("Content-Type", "application/json")
+                        .body(body)
+                        .unwrap();
 
-            let translate_type = match path_it.next() {
-                Some(translate_type) => translate_type.to_str().unwrap(),
-                _none => "any",
-            };
-
-            let return_link = format!("Translated link for: {}, type: {}", link, translate_type);
-
-            let body = full(Bytes::from(return_link.to_string()));
-            let response = Response::builder()
-                .status(StatusCode::OK)
-                .header("Content-Type", "application/json")
-                .body(body)
-                .unwrap();
-
-            Ok(response)
+                    Ok(response)
+                }
+                Err(err) => {
+                    let body = full(Bytes::from(err.to_string()));
+                    let response = Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(body)
+                        .unwrap();
+                    Ok(response)
+                }
+            }
         }
         _ => Ok(bad_request("Invalid method or resource")),
     }

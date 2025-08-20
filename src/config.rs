@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientCredentials {
@@ -10,7 +10,6 @@ pub struct ClientCredentials {
 pub struct AccessToken {
     secret: String,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Credentials {
@@ -34,15 +33,19 @@ impl Credentials {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub credentials: Option<Credentials>,
+    pub api_password: Option<String>,
 }
-
 
 impl Config {
     pub fn read() -> Self {
         let config_file_contents = match std::fs::read("./Config.toml") {
             Ok(contents) => contents,
             Err(_) => {
-                std::fs::write("./Config.toml", toml::to_string_pretty(&Self::default()).unwrap().as_bytes()).expect("Could not write Config.toml.");
+                std::fs::write(
+                    "./Config.toml",
+                    toml::to_string_pretty(&Self::default()).unwrap().as_bytes(),
+                )
+                .expect("Could not write Config.toml.");
                 std::fs::read("./Config.toml").expect("Can not read Config.toml.")
             }
         };
@@ -53,6 +56,7 @@ impl Config {
     pub fn default() -> Self {
         Self {
             credentials: Some(Credentials::empty()),
+            api_password: Some(String::from("")),
         }
     }
 }
