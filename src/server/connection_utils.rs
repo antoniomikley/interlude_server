@@ -37,7 +37,7 @@ where
     let full_url = base.join(&req.uri().to_string()).unwrap();
 
     match (req.method(), path_resource) {
-        (&Method::GET, "translate") => {
+        (&Method::GET, "convert") => {
             let link = match full_url.query_pairs().find(|(key, _)| key == "link") {
                 Some(link) => decode(&link.1).unwrap().to_string(),
                 _none => return Ok(bad_request("Link must be provided")),
