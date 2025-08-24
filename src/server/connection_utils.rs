@@ -1,21 +1,21 @@
 use http_body_util::{BodyExt, Empty, Full, combinators::BoxBody};
-use urlencoding::decode_binary;
+use reqwest::Url;
 use std::{fmt::Debug, path::Path, str, sync::Arc};
+use urlencoding::decode;
 
 use hyper::{
     Error as HyperError, Method, Request, Response, Result as HyperResult, StatusCode,
     body::{Body, Bytes},
 };
 
-use crate::api::conversion::{convert, ApiClients};
+use crate::api::conversion::{ApiClients, convert};
 
 use super::authorization::check_authorization;
-
 
 pub async fn handle_connection<B: Body + Debug>(
     req: Request<B>,
     api_clients: Arc<ApiClients>,
-    api_secret: &str
+    api_secret: &str,
 ) -> HyperResult<Response<BoxBody<Bytes, HyperError>>>
 where
     <B as Body>::Error: Debug,
@@ -33,13 +33,13 @@ where
         _none => return Ok(bad_request("Resource cannot be empty")),
     };
 
+    let base = Url::parse("http://localhost").unwrap();
+    let full_url = base.join(&req.uri().to_string()).unwrap();
+
     match (req.method(), path_resource) {
         (&Method::GET, "translate") => {
-            let link = match path_it.next() {
-                Some(link) => {
-                    let decoded = decode_binary(link.as_encoded_bytes());
-                    String::from_utf8_lossy(&decoded).into_owned()
-                },
+            let link = match full_url.query_pairs().find(|(key, _)| key == "link") {
+                Some(link) => decode(&link.1).unwrap().to_string(),
                 _none => return Ok(bad_request("Link must be provided")),
             };
             let return_link = convert(&link, api_clients).await;
