@@ -67,7 +67,11 @@ impl ApiClients {
             spotify = Some(SpotifyApi::new(client, &credentials.spotify.unwrap()).await);
         }
         if credentials.tidal.is_some() {
-            tidal = Some(TidalApi::new(client, &credentials.tidal.unwrap()).await);
+            tidal = Some(
+                TidalApi::new(client, &credentials.tidal.unwrap())
+                    .await
+                    .unwrap(),
+            );
         }
 
         Self {
@@ -163,14 +167,12 @@ pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> anyhow::Result<
         None => Link::empty_for(LinkType::AppleMusic),
     };
 
-    Ok(serde_json::to_string(
-        &ConversionResults {
-            results: vec![
-                spotify_result,
-                tidal_result,
-                deezer_result,
-                apple_music_result,
-            ],
-        })?
-    )
+    Ok(serde_json::to_string(&ConversionResults {
+        results: vec![
+            spotify_result,
+            tidal_result,
+            deezer_result,
+            apple_music_result,
+        ],
+    })?)
 }
