@@ -5,8 +5,17 @@ use std::{
 
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::config::ClientCredentials;
+
+#[derive(Debug, Error)]
+pub enum AuthorizationError {
+    #[error(transparent)]
+    RequestError(#[from] reqwest::Error),
+    #[error(transparent)]
+    ParsingError(#[from] serde_json::Error),
+}
 
 pub struct AccessToken {
     pub token: String,
@@ -19,7 +28,7 @@ impl AccessToken {
         client: &Client,
         credentials: &ClientCredentials,
         auth_endpoint: &str,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, AuthorizationError> {
         #[derive(Serialize, Deserialize)]
         struct ResponseBody {
             access_token: String,
