@@ -13,6 +13,7 @@ pub mod apple_music;
 pub mod deezer;
 pub mod authorization;
 pub mod conversion;
+pub mod common;
 
 pub enum ApiClient {
     Spotify(SpotifyApi),

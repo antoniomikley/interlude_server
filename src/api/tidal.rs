@@ -8,6 +8,7 @@ use rust_iso3166::CountryCode;
 use serde::Deserialize;
 
 use crate::{
+    api::common::authorized_get_request,
     config::ClientCredentials,
     share_link::{LinkType, ShareLink, ShareObject},
     shared_item::{AlbumData, ArtistData, SongData},
@@ -170,17 +171,17 @@ impl TidalApi {
         let cc = album_link.country_code.clone();
         let id = album_link.id.clone();
 
-        let response = self
-            .make_get_request(
-                format!(
-                    "{}/albums/{}?countryCode={}&include=items,artists",
-                    Self::BASE_URL,
-                    id,
-                    cc.alpha2
-                )
-                .as_str(),
-            )
-            .await?;
+        let response = authorized_get_request(
+            &self.client,
+            format!(
+                "{}/albums/{}?countryCode={}&include=items,artists",
+                Self::BASE_URL,
+                id,
+                cc.alpha2
+            ),
+            &self.get_bearer_token().await?,
+        )
+        .await?;
 
         let results: QueryResult = serde_json::from_str(&response).unwrap();
         let album_attrs = match results.data.attributes {
@@ -241,18 +242,17 @@ impl TidalApi {
         let cc = artist_link.country_code.clone();
         let id = artist_link.id.clone();
 
-        let response = self
-            .make_get_request(
-                format!(
-                    "{}/artists/{}?countryCode={}",
-                    Self::BASE_URL,
-                    id,
-                    cc.alpha2
-                )
-                .as_str(),
-            )
-            .await
-            .unwrap();
+        let response = authorized_get_request(
+            &self.client,
+            format!(
+                "{}/artists/{}?countryCode={}",
+                Self::BASE_URL,
+                id,
+                cc.alpha2
+            ),
+            &self.get_bearer_token().await?,
+        )
+        .await?;
 
         let results: QueryResult = serde_json::from_str(&response).unwrap();
         let artist_attrs = match results.data.attributes {
@@ -264,24 +264,22 @@ impl TidalApi {
         let artist_name = artist_attrs.name;
 
         let mut albums: Vec<AlbumData> = Vec::new();
-        let response = self
-            .make_get_request(
-                format!(
-                    "{}/artists/{}/relationships/albums?countryCode={}&include=albums",
-                    Self::BASE_URL,
-                    id,
-                    cc.alpha2
-                )
-                .as_str(),
-            )
-            .await
-            .unwrap();
+        let response = authorized_get_request(
+            &self.client,
+            format!(
+                "{}/artists/{}/relationships/albums?countryCode={}&include=albums",
+                Self::BASE_URL,
+                id,
+                cc.alpha2
+            ),
+            &self.get_bearer_token().await?,
+        )
+        .await?;
 
         let mut results: RelationshipResults = serde_json::from_str(&response).unwrap();
 
         // TODO: This needs a better solution
-        let max_requests = 3; // in development mode a tidal application can make max 10
-        // requests. we already did one so we shouldn't do more than 9.
+        let max_requests = 3; // in development mode a tidal application can make max 10 requests
         let mut request_counter = 0;
 
         loop {
@@ -306,10 +304,13 @@ impl TidalApi {
             match results.links.next {
                 None => break,
                 Some(link) => {
-                    let response = self
-                        .make_get_request(format!("{}{}", Self::BASE_URL, &link).as_str())
-                        .await
-                        .unwrap();
+                    let response = authorized_get_request(
+                        &self.client,
+                        format!("{}{}", Self::BASE_URL, &link),
+                        &self.get_bearer_token().await?,
+                    )
+                    .await?;
+
                     request_counter += 1;
                     results = serde_json::from_str(&response).unwrap();
                 }
@@ -319,35 +320,22 @@ impl TidalApi {
         return Ok(ArtistData::new(&artist_name, albums));
     }
 
-    async fn make_get_request(&self, url: &str) -> anyhow::Result<String> {
-        let response = self
-            .client
-            .get(url)
-            .bearer_auth(self.get_bearer_token().await.unwrap())
-            .send()
-            .await
-            .unwrap();
-
-        Ok(response.text().await.unwrap())
-    }
-
     pub async fn get_song_link(
         &self,
         song_data: &SongData,
         country_code: &CountryCode,
     ) -> anyhow::Result<ShareLink> {
-        let response = self
-            .make_get_request(
-                format!(
-                    "{}/tracks?countryCode={}&filter[isrc]={}",
-                    Self::BASE_URL,
-                    country_code.alpha2,
-                    song_data.isrc
-                )
-                .as_str(),
-            )
-            .await
-            .unwrap();
+        let response = authorized_get_request(
+            &self.client,
+            format!(
+                "{}/tracks?countryCode={}&filter[isrc]={}",
+                Self::BASE_URL,
+                country_code.alpha2,
+                song_data.isrc
+            ),
+            &self.get_bearer_token().await?,
+        )
+        .await?;
 
         let results: FilterQuery = serde_json::from_str(&response).unwrap();
         for item in results.data {
@@ -366,18 +354,18 @@ impl TidalApi {
         album_data: &AlbumData,
         country_code: &CountryCode,
     ) -> anyhow::Result<ShareLink> {
-        let response = self
-            .make_get_request(
-                format!(
-                    "{}/albums?countryCode={}&filter[barcodeId]={}",
-                    Self::BASE_URL,
-                    country_code.alpha2,
-                    album_data.upc
-                )
-                .as_str(),
-            )
-            .await
-            .unwrap();
+        let response = authorized_get_request(
+            &self.client,
+            format!(
+                "{}/albums?countryCode={}&filter[barcodeId]={}",
+                Self::BASE_URL,
+                country_code.alpha2,
+                album_data.upc
+            ),
+            &self.get_bearer_token().await?,
+        )
+        .await
+        .unwrap();
 
         let results: FilterQuery = serde_json::from_str(&response).unwrap();
         for item in results.data {
