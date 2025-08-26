@@ -12,7 +12,8 @@ use crate::{
     shared_item::{AlbumData, ArtistData, SongData},
 };
 
-use super::{authorization::AccessToken, common::authorized_get_request};
+use super::authorization::AccessToken;
+
 #[derive(Deserialize, Debug, Clone)]
 enum ExternalId {
     #[serde(rename = "isrc")]
@@ -73,17 +74,19 @@ impl SpotifyApi {
         return Ok(token_w.token.clone());
     }
     pub async fn get_song_data(&self, song_link: &ShareLink) -> anyhow::Result<SongData> {
-        let response = authorized_get_request(
-            &self.client,
-            format!(
+        let response = self
+            .client
+            .get(format!(
                 "{}/tracks/{}?market={}",
                 Self::BASE_URL,
                 &song_link.id,
                 &song_link.country_code.alpha2
-            ),
-            &self.get_bearer_token().await?,
-        )
-        .await?;
+            ))
+            .bearer_auth(self.get_bearer_token().await?)
+            .send()
+            .await?
+            .text()
+            .await?;
 
         let result: SongQuery = serde_json::from_str(&response).unwrap();
 
@@ -114,17 +117,19 @@ impl SpotifyApi {
             external_ids: ExternalId,
         }
 
-        let response = authorized_get_request(
-            &self.client,
-            format!(
+        let response = self
+            .client
+            .get(format!(
                 "{}/albums/{}?market={}",
                 Self::BASE_URL,
                 &album_link.id,
                 &album_link.country_code.alpha2
-            ),
-            &self.get_bearer_token().await?,
-        )
-        .await?;
+            ))
+            .bearer_auth(self.get_bearer_token().await?)
+            .send()
+            .await?
+            .text()
+            .await?;
 
         let result: AlbumQuery = serde_json::from_str(&response).unwrap();
 
@@ -153,17 +158,18 @@ impl SpotifyApi {
         struct Album {
             items: Vec<Item>,
         }
-        let response = authorized_get_request(
-            &self.client,
-            format!(
+        let response = self
+            .client
+            .get(format!(
                 "{}/search?q=upc:{}&type=album",
                 Self::BASE_URL,
                 album_data.upc
-            )
-            .as_str(),
-            &self.get_bearer_token().await?,
-        )
-        .await?;
+            ))
+            .bearer_auth(self.get_bearer_token().await?)
+            .send()
+            .await?
+            .text()
+            .await?;
 
         let result: AlbumSearch = serde_json::from_str(&response).unwrap();
         if result.albums.items.len() != 1 {
@@ -192,16 +198,18 @@ impl SpotifyApi {
             items: Vec<Item>,
         }
 
-        let response = authorized_get_request(
-            &self.client,
-            format!(
+        let response = self
+            .client
+            .get(format!(
                 "{}/search?q=isrc:{}&type=track",
                 Self::BASE_URL,
                 song_data.isrc
-            ),
-            &self.get_bearer_token().await?,
-        )
-        .await?;
+            ))
+            .bearer_auth(self.get_bearer_token().await?)
+            .send()
+            .await?
+            .text()
+            .await?;
 
         let result: TrackSearch = serde_json::from_str(&response).unwrap();
         if result.tracks.items.len() == 0 {
