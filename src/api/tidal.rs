@@ -13,7 +13,7 @@ use crate::{
     shared_item::{AlbumData, ArtistData, SongData},
 };
 
-use super::authorization::AccessToken;
+use super::authorization::{AccessToken, AuthorizationError};
 
 #[derive(Deserialize, Debug, Clone)]
 struct QueryResult {
@@ -75,19 +75,20 @@ impl TidalApi {
     const BASE_URL: &'static str = "https://openapi.tidal.com/v2";
     const AUTH_ENDPOINT: &'static str = "https://auth.tidal.com/v1/oauth2/token";
 
-    pub async fn new(client: &Client, credentials: &ClientCredentials) -> Self {
-        Self {
+    pub async fn new(
+        client: &Client,
+        credentials: &ClientCredentials,
+    ) -> Result<Self, AuthorizationError> {
+        Ok(Self {
             client: client.clone(),
             creds: credentials.clone(),
             access_token: Arc::new(RwLock::new(
-                AccessToken::new(client, credentials, Self::AUTH_ENDPOINT)
-                    .await
-                    .expect("Could not create new client. The credentials for the tidal API are probably wrong."),
+                AccessToken::new(client, credentials, Self::AUTH_ENDPOINT).await?,
             )),
-        }
+        })
     }
 
-    async fn get_bearer_token(&self) -> anyhow::Result<String> {
+    async fn get_bearer_token(&self) -> Result<String, AuthorizationError> {
         {
             let token_ro = self.access_token.read().await;
             if !token_ro.is_expired() {
