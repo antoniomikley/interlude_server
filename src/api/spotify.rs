@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use anyhow::bail;
 use reqwest::Client;
 use rust_iso3166::CountryCode;
 use serde::Deserialize;
@@ -12,7 +11,7 @@ use crate::{
     shared_item::{AlbumData, ArtistData, SongData},
 };
 
-use super::authorization::AccessToken;
+use super::{authorization::AccessToken, ApiError};
 
 #[derive(Deserialize, Debug, Clone)]
 enum ExternalId {
@@ -62,7 +61,7 @@ impl SpotifyApi {
         }
     }
 
-    async fn get_bearer_token(&self) -> anyhow::Result<String> {
+    async fn get_bearer_token(&self) -> Result<String, ApiError> {
         {
             let token_ro = self.access_token.read().await;
             if !token_ro.is_expired() {
@@ -70,10 +69,10 @@ impl SpotifyApi {
             }
         }
         let mut token_w = self.access_token.write().await;
-        token_w.refresh(&self.client, &self.creds).await.unwrap();
+        token_w.refresh(&self.client, &self.creds).await?;
         return Ok(token_w.token.clone());
     }
-    pub async fn get_song_data(&self, song_link: &ShareLink) -> anyhow::Result<SongData> {
+    pub async fn get_song_data(&self, song_link: &ShareLink) -> Result<SongData, ApiError> {
         let response = self
             .client
             .get(format!(
@@ -88,12 +87,12 @@ impl SpotifyApi {
             .text()
             .await?;
 
-        let result: SongQuery = serde_json::from_str(&response).unwrap();
+        let result: SongQuery = serde_json::from_str(&response)?;
 
         let song_dur = Duration::from_millis(result.duration_ms).as_secs();
         let song_isrc = match result.external_ids {
             ExternalId::ISRC(isrc) => isrc,
-            _ => bail!("Should probably return a 503."),
+            _ => return Err(ApiError::IncorrectAttributes),
         };
 
         let mut artists = Vec::new();
@@ -110,7 +109,7 @@ impl SpotifyApi {
         ))
     }
 
-    pub async fn get_album_data(&self, album_link: &ShareLink) -> anyhow::Result<AlbumData> {
+    pub async fn get_album_data(&self, album_link: &ShareLink) -> Result<AlbumData, ApiError> {
         #[derive(Deserialize, Clone, Debug)]
         struct AlbumQuery {
             name: String,
@@ -131,17 +130,17 @@ impl SpotifyApi {
             .text()
             .await?;
 
-        let result: AlbumQuery = serde_json::from_str(&response).unwrap();
+        let result: AlbumQuery = serde_json::from_str(&response)?;
 
         let upc = match result.external_ids {
             ExternalId::UPC(upc) => upc,
-            _ => bail!("also return 503"),
+            _ => return Err(ApiError::IncorrectAttributes),
         };
 
         Ok(AlbumData::with_limited_info(&result.name, &upc, 0))
     }
 
-    pub async fn get_artist_data(&self, _artist_link: ShareLink) -> anyhow::Result<ArtistData> {
+    pub async fn get_artist_data(&self, _artist_link: ShareLink) -> Result<ArtistData, ApiError> {
         todo!()
     }
 
@@ -149,7 +148,7 @@ impl SpotifyApi {
         &self,
         album_data: &AlbumData,
         country_code: &CountryCode,
-    ) -> anyhow::Result<ShareLink> {
+    ) -> Result<ShareLink, ApiError> {
         #[derive(Deserialize, Debug, Clone)]
         struct AlbumSearch {
             albums: Album,
@@ -171,9 +170,9 @@ impl SpotifyApi {
             .text()
             .await?;
 
-        let result: AlbumSearch = serde_json::from_str(&response).unwrap();
-        if result.albums.items.len() != 1 {
-            bail!("Found no match or found multiple matches. Both is bad.")
+        let result: AlbumSearch = serde_json::from_str(&response)?;
+        if result.albums.items.len() == 0 {
+            return Err(ApiError::UnsuccessfulConversion);
         }
 
         Ok(ShareLink::new(
@@ -188,7 +187,7 @@ impl SpotifyApi {
         &self,
         song_data: &SongData,
         country_code: &CountryCode,
-    ) -> anyhow::Result<ShareLink> {
+    ) -> Result<ShareLink, ApiError> {
         #[derive(Deserialize, Debug, Clone)]
         struct TrackSearch {
             tracks: Track,
@@ -211,9 +210,9 @@ impl SpotifyApi {
             .text()
             .await?;
 
-        let result: TrackSearch = serde_json::from_str(&response).unwrap();
+        let result: TrackSearch = serde_json::from_str(&response)?;
         if result.tracks.items.len() == 0 {
-            bail!("Found no match.")
+            return Err(ApiError::UnsuccessfulConversion);
         }
 
         Ok(ShareLink::new(

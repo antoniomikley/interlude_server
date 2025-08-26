@@ -1,67 +1,85 @@
-use anyhow::bail;
 use apple_music::AppleMusicApi;
+use authorization::AuthorizationError;
 use deezer::DeezerApi;
 use rust_iso3166::CountryCode;
 use spotify::SpotifyApi;
+use thiserror::Error;
 use tidal::TidalApi;
 
-use crate::{share_link::{ShareLink, ShareObject}, shared_item::Data};
+use crate::{
+    share_link::{ShareLink, ShareObject},
+    shared_item::Data,
+};
 
-pub mod tidal;
-pub mod spotify;
 pub mod apple_music;
-pub mod deezer;
 pub mod authorization;
 pub mod conversion;
+pub mod deezer;
+pub mod spotify;
+pub mod tidal;
+
+#[derive(Debug, Error)]
+pub enum ApiError {
+    #[error(transparent)]
+    RequestError(#[from] reqwest::Error),
+    #[error(transparent)]
+    ParsingError(#[from] serde_json::Error),
+    #[error("The provided link does not have the correct attributes.")]
+    UnsuitableLink,
+    #[error(transparent)]
+    AuthorizationError(#[from] AuthorizationError),
+    #[error("Found incorrect attributes in the response.")]
+    IncorrectAttributes,
+    #[error("Conversion unsuccessful.")]
+    UnsuccessfulConversion,
+    #[error("This feature is currently not supported")]
+    UnsupportedFeature,
+}
 
 pub enum ApiClient {
     Spotify(SpotifyApi),
     Tidal(TidalApi),
     Deezer(DeezerApi),
-    AppleMusic(AppleMusicApi)
+    AppleMusic(AppleMusicApi),
 }
 
 impl ApiClient {
-    pub async fn link_to_data(&self, link: &ShareLink) -> anyhow::Result<Data> {
+    pub async fn link_to_data(&self, link: &ShareLink) -> Result<Data, ApiError> {
         match link.share_obj {
-            ShareObject::Song => {
-                match self {
-                    ApiClient::Spotify(client) => return Ok(Data::Song(client.get_song_data(&link).await?)),
-                    ApiClient::Tidal(client) => return Ok(Data::Song(client.get_song_data(&link).await?)),
-                    ApiClient::Deezer(_) => bail!("Deezer is currently not supported."),
-                    ApiClient::AppleMusic(_) => bail!("AppleMusic is currently not supported.")
-                }
+            ShareObject::Song => match self {
+                ApiClient::Spotify(client) => Ok(Data::Song(client.get_song_data(&link).await?)),
+                ApiClient::Tidal(client) => Ok(Data::Song(client.get_song_data(&link).await?)),
+                ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
+                ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
             },
-            ShareObject::Album => {
-                match self {
-                    ApiClient::Spotify(client) => return Ok(Data::Album(client.get_album_data(&link).await?)),
-                    ApiClient::Tidal(client) => return Ok(Data::Album(client.get_album_data(&link).await?)),
-                    ApiClient::Deezer(_) => bail!("Deezer is currently not supported."),
-                    ApiClient::AppleMusic(_) => bail!("AppleMusic is currently not supported.")
-                }
-            }
-            ShareObject::Artist => bail!("Conversion for artist links is currently not supported.")
+            ShareObject::Album => match self {
+                ApiClient::Spotify(client) => Ok(Data::Album(client.get_album_data(&link).await?)),
+                ApiClient::Tidal(client) => Ok(Data::Album(client.get_album_data(&link).await?)),
+                ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
+                ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
+            },
+            ShareObject::Artist => Err(ApiError::UnsupportedFeature),
         }
     }
-    pub async fn data_to_link(&self, data: &Data, country_code: &CountryCode) -> anyhow::Result<ShareLink> {
+    pub async fn data_to_link(
+        &self,
+        data: &Data,
+        country_code: &CountryCode,
+    ) -> Result<ShareLink, ApiError> {
         match data {
-            Data::Song(song_data) => {
-                match self {
-                    ApiClient::Spotify(client) => return client.get_song_link(&song_data, country_code).await,
-                    ApiClient::Tidal(client) => return client.get_song_link(&song_data, country_code).await,
-                    ApiClient::Deezer(_) => bail!("Deezer is currently not supported."),
-                    ApiClient::AppleMusic(_) => bail!("AppleMusic is currently not supported.")
-                }
+            Data::Song(song_data) => match self {
+                ApiClient::Spotify(client) => client.get_song_link(&song_data, country_code).await,
+                ApiClient::Tidal(client) => client.get_song_link(&song_data, country_code).await,
+                ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
+                ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
             },
-            Data::Album(album_data) => {
-                match self {
-                    ApiClient::Spotify(client) => return client.get_album_link(&album_data, country_code).await,
-                    ApiClient::Tidal(client) => return client.get_album_link(&album_data, country_code).await,
-                    ApiClient::Deezer(_) => bail!("Deezer is currently not supported."),
-                    ApiClient::AppleMusic(_) => bail!("AppleMusic is currently not supported.")
-                }
+            Data::Album(album_data) => match self {
+                ApiClient::Spotify(client) => client.get_album_link(&album_data, country_code).await,
+                ApiClient::Tidal(client) => client.get_album_link(&album_data, country_code).await,
+                ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
+                ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
             },
-            Data::Artist(_artist_data) => bail!("Conversion for artist links is currently not supported.")
+            Data::Artist(_artist_data) => Err(ApiError::UnsupportedFeature),
         }
     }
 }

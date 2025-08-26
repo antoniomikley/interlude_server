@@ -13,7 +13,10 @@ use crate::{
     shared_item::{AlbumData, ArtistData, SongData},
 };
 
-use super::authorization::{AccessToken, AuthorizationError};
+use super::{
+    ApiError,
+    authorization::{AccessToken, AuthorizationError},
+};
 
 #[derive(Deserialize, Debug, Clone)]
 struct QueryResult {
@@ -71,6 +74,10 @@ pub struct TidalApi {
     access_token: Arc<RwLock<AccessToken>>,
 }
 
+const ISO_DURATION_ERR_MSG: &'static str = "Duration does not follow iso8601.";
+const INCLUDE_ERR_MSG: &'static str =
+    "Request with include query parameter did not return included in response.";
+
 impl TidalApi {
     const BASE_URL: &'static str = "https://openapi.tidal.com/v2";
     const AUTH_ENDPOINT: &'static str = "https://auth.tidal.com/v1/oauth2/token";
@@ -100,12 +107,9 @@ impl TidalApi {
         return Ok(token_w.token.clone());
     }
 
-    pub async fn get_song_data(&self, song_link: &ShareLink) -> anyhow::Result<SongData> {
-        if song_link.link_type != LinkType::Tidal {
-            bail!("The provided link is not from Tidal.");
-        }
-        if song_link.share_obj != ShareObject::Song {
-            bail!("The provided link is not for a song.");
+    pub async fn get_song_data(&self, song_link: &ShareLink) -> Result<SongData, ApiError> {
+        if song_link.link_type != LinkType::Tidal || song_link.share_obj != ShareObject::Song {
+            return Err(ApiError::UnsuitableLink);
         }
 
         let cc = song_link.country_code.clone();
@@ -129,12 +133,7 @@ impl TidalApi {
 
         let song_attrs = match results.data.attributes {
             Attributes::Tracks(attrs) => attrs,
-            Attributes::Albums(_) => {
-                bail!("Something went terribly wrong.")
-            }
-            Attributes::Artists(_) => {
-                bail!("Something went terribly wrong.")
-            }
+            _ => return Err(ApiError::IncorrectAttributes),
         };
         let song_name = song_attrs.title;
         let song_isrc = song_attrs.isrc;
@@ -143,15 +142,13 @@ impl TidalApi {
         let mut albums = Vec::new();
         let mut artists = Vec::new();
 
-        for include in results.included.unwrap() {
+        for include in results.included.expect(INCLUDE_ERR_MSG) {
             match include.attributes {
-                Attributes::Tracks(_) => {
-                    bail!("Includes should not contain tracks, but somehow they do.")
-                }
+                Attributes::Tracks(_) => return Err(ApiError::IncorrectAttributes),
                 Attributes::Albums(attrs) => albums.push(AlbumData::with_limited_info(
                     &attrs.title,
                     &attrs.upc,
-                    iso8601_to_seconds(&attrs.duration)?,
+                    iso8601_to_seconds(&attrs.duration).expect(ISO_DURATION_ERR_MSG),
                 )),
                 Attributes::Artists(attrs) => artists.push(ArtistData::without_albums(&attrs.name)),
             }
@@ -162,12 +159,9 @@ impl TidalApi {
         ))
     }
 
-    pub async fn get_album_data(&self, album_link: &ShareLink) -> anyhow::Result<AlbumData> {
-        if album_link.link_type != LinkType::Tidal {
-            bail!("The provided link is not from Tidal.");
-        }
-        if album_link.share_obj != ShareObject::Album {
-            bail!("The provided link is not for an album.");
+    pub async fn get_album_data(&self, album_link: &ShareLink) -> Result<AlbumData, ApiError> {
+        if album_link.link_type != LinkType::Tidal || album_link.share_obj != ShareObject::Album {
+            return Err(ApiError::UnsuitableLink);
         }
 
         let cc = album_link.country_code.clone();
@@ -187,19 +181,18 @@ impl TidalApi {
             .text()
             .await?;
 
-        let results: QueryResult = serde_json::from_str(&response).unwrap();
+        let results: QueryResult = serde_json::from_str(&response)?;
         let album_attrs = match results.data.attributes {
             Attributes::Albums(attrs) => attrs,
-            Attributes::Tracks(_) => bail!(""),
-            Attributes::Artists(_) => bail!(""),
+            _ => return Err(ApiError::IncorrectAttributes),
         };
 
         let album_name = album_attrs.title;
-        let album_dur = iso8601_to_seconds(&album_attrs.duration).unwrap();
+        let album_dur = iso8601_to_seconds(&album_attrs.duration).expect(ISO_DURATION_ERR_MSG);
         let album_upc = album_attrs.upc;
         let mut songs: Vec<SongData> = Vec::new();
         let mut artists: Vec<ArtistData> = Vec::new();
-        let includes = results.included.unwrap();
+        let includes = results.included.expect(INCLUDE_ERR_MSG);
 
         for include in includes {
             match include.attributes {
@@ -207,7 +200,7 @@ impl TidalApi {
                 Attributes::Tracks(attrs) => songs.push(SongData::new(
                     &attrs.title,
                     &attrs.isrc,
-                    iso8601_to_seconds(&attrs.duration).unwrap(),
+                    iso8601_to_seconds(&attrs.duration).expect(ISO_DURATION_ERR_MSG),
                     Vec::new(),
                     Vec::new(),
                 )),
@@ -224,7 +217,7 @@ impl TidalApi {
         ))
     }
 
-    pub async fn get_artist_data(&self, artist_link: ShareLink) -> anyhow::Result<ArtistData> {
+    pub async fn get_artist_data(&self, artist_link: ShareLink) -> Result<ArtistData, ApiError> {
         #[derive(Deserialize, Debug, Clone)]
         struct RelationshipResults {
             links: Link,
@@ -236,11 +229,9 @@ impl TidalApi {
             next: Option<String>,
         }
 
-        if artist_link.link_type != LinkType::Tidal {
-            bail!("The provided link is not from Tidal.");
-        }
-        if artist_link.share_obj != ShareObject::Artist {
-            bail!("The provided link is not for an artist.");
+        if artist_link.link_type != LinkType::Tidal || artist_link.share_obj != ShareObject::Artist
+        {
+            return Err(ApiError::UnsuitableLink);
         }
 
         let cc = artist_link.country_code.clone();
@@ -260,11 +251,10 @@ impl TidalApi {
             .text()
             .await?;
 
-        let results: QueryResult = serde_json::from_str(&response).unwrap();
+        let results: QueryResult = serde_json::from_str(&response)?;
         let artist_attrs = match results.data.attributes {
             Attributes::Artists(attrs) => attrs,
-            Attributes::Tracks(_) => bail!(""),
-            Attributes::Albums(_) => bail!(""),
+            _ => return Err(ApiError::IncorrectAttributes),
         };
 
         let artist_name = artist_attrs.name;
@@ -284,7 +274,7 @@ impl TidalApi {
             .text()
             .await?;
 
-        let mut results: RelationshipResults = serde_json::from_str(&response).unwrap();
+        let mut results: RelationshipResults = serde_json::from_str(&response)?;
 
         // TODO: This needs a better solution
         let max_requests = 3; // in development mode a tidal application can make max 10 requests
@@ -294,14 +284,13 @@ impl TidalApi {
             for item in results.included {
                 let album_attrs = match item.attributes {
                     Attributes::Albums(attrs) => attrs,
-                    Attributes::Tracks(_) => bail!(""),
-                    Attributes::Artists(_) => bail!(""),
+                    _ => return Err(ApiError::IncorrectAttributes),
                 };
 
                 albums.push(AlbumData::with_limited_info(
                     &album_attrs.title,
                     &album_attrs.upc,
-                    iso8601_to_seconds(&album_attrs.duration).unwrap(),
+                    iso8601_to_seconds(&album_attrs.duration).expect(ISO_DURATION_ERR_MSG),
                 ))
             }
 
@@ -322,7 +311,7 @@ impl TidalApi {
                         .await?;
 
                     request_counter += 1;
-                    results = serde_json::from_str(&response).unwrap();
+                    results = serde_json::from_str(&response)?;
                 }
             }
         }
@@ -334,7 +323,7 @@ impl TidalApi {
         &self,
         song_data: &SongData,
         country_code: &CountryCode,
-    ) -> anyhow::Result<ShareLink> {
+    ) -> Result<ShareLink, ApiError> {
         let response = self
             .client
             .get(format!(
@@ -349,23 +338,23 @@ impl TidalApi {
             .text()
             .await?;
 
-        let results: FilterQuery = serde_json::from_str(&response).unwrap();
+        let results: FilterQuery = serde_json::from_str(&response)?;
         for item in results.data {
             let share_link =
                 ShareLink::new(LinkType::Tidal, ShareObject::Song, &item.id, country_code);
-            let sd = self.get_song_data(&share_link).await.unwrap();
+            let sd = self.get_song_data(&share_link).await?;
             if sd == song_data.clone() {
                 return Ok(share_link);
             }
         }
-        bail!("Could not find the song.")
+        Err(ApiError::UnsuccessfulConversion)
     }
 
     pub async fn get_album_link(
         &self,
         album_data: &AlbumData,
         country_code: &CountryCode,
-    ) -> anyhow::Result<ShareLink> {
+    ) -> Result<ShareLink, ApiError> {
         let response = self
             .client
             .get(format!(
@@ -380,7 +369,7 @@ impl TidalApi {
             .text()
             .await?;
 
-        let results: FilterQuery = serde_json::from_str(&response).unwrap();
+        let results: FilterQuery = serde_json::from_str(&response)?;
         for item in results.data {
             let share_link =
                 ShareLink::new(LinkType::Tidal, ShareObject::Album, &item.id, &country_code);
@@ -389,7 +378,8 @@ impl TidalApi {
                 return Ok(share_link);
             }
         }
-        bail!("Could not find the song.")
+
+        Err(ApiError::UnsuccessfulConversion)
     }
 }
 
