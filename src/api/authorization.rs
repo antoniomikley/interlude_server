@@ -62,7 +62,7 @@ impl AccessToken {
         &mut self,
         client: &Client,
         credentials: &ClientCredentials,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), AuthorizationError> {
         let refreshed_token = AccessToken::new(client, credentials, &self.auth_endpoint).await?;
         self.token = refreshed_token.token;
         self.expiry = refreshed_token.expiry;
