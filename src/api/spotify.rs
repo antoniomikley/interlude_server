@@ -11,7 +11,7 @@ use crate::{
     shared_item::{AlbumData, ArtistData, SongData},
 };
 
-use super::{authorization::AccessToken, ApiError};
+use super::{ApiError, authorization::AccessToken};
 
 #[derive(Deserialize, Debug, Clone)]
 enum ExternalId {

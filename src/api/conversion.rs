@@ -1,18 +1,27 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::bail;
 use reqwest::Client;
 use serde::Serialize;
+use thiserror::Error;
 
 use crate::{
     api::ApiClient,
     config::Credentials,
-    share_link::{LinkType, ShareLink},
+    share_link::{LinkType, ShareLink, ShareLinkError},
     shared_item::Data,
 };
 
-use super::{apple_music::AppleMusicApi, deezer::DeezerApi, spotify::SpotifyApi, tidal::TidalApi};
+use super::{
+    ApiError, apple_music::AppleMusicApi, deezer::DeezerApi, spotify::SpotifyApi, tidal::TidalApi,
+};
 
+#[derive(Debug, Error)]
+pub enum ConversionError {
+    #[error(transparent)]
+    ApiClient(#[from] ApiError),
+    #[error(transparent)]
+    Link(#[from] ShareLinkError),
+}
 #[derive(Serialize, Debug, Clone)]
 pub struct ConversionResults {
     results: Vec<Link>,
@@ -114,15 +123,12 @@ impl ApiClients {
     }
 }
 
-pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> anyhow::Result<String> {
+pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> Result<String, ConversionError> {
     let share_link = ShareLink::from_url(&url)?;
     let supported_apis = api_clients.get_supported_clients();
 
     if !supported_apis.contains_key(&share_link.link_type.to_string()) {
-        bail!(
-            "Cannot convert links from {}.",
-            &share_link.link_type.to_string()
-        )
+        return Err(ConversionError::ApiClient(ApiError::UnsupportedFeature));
     }
 
     let data = supported_apis
@@ -174,5 +180,6 @@ pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> anyhow::Result<
             deezer_result,
             apple_music_result,
         ],
-    })?)
+    })
+    .expect("Conversion result should always be valid."))
 }

@@ -74,7 +74,9 @@ impl ApiClient {
                 ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
             },
             Data::Album(album_data) => match self {
-                ApiClient::Spotify(client) => client.get_album_link(&album_data, country_code).await,
+                ApiClient::Spotify(client) => {
+                    client.get_album_link(&album_data, country_code).await
+                }
                 ApiClient::Tidal(client) => client.get_album_link(&album_data, country_code).await,
                 ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
                 ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),

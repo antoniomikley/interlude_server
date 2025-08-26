@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
-use anyhow::bail;
 use reqwest::Client;
 use rust_iso3166::CountryCode;
 use serde::Deserialize;
@@ -383,10 +382,12 @@ impl TidalApi {
     }
 }
 
-fn iso8601_to_seconds(iso8601_duration: &str) -> anyhow::Result<u64> {
+fn iso8601_to_seconds(iso8601_duration: &str) -> Result<u64, String> {
     let iso_dur = iso8601::duration(iso8601_duration).unwrap();
     match iso_dur {
-        iso8601::Duration::Weeks(_) => bail!("Week long durations  are not supported."),
+        iso8601::Duration::Weeks(_) => {
+            return Err(String::from("Week long durations  are not supported."));
+        }
         iso8601::Duration::YMDHMS {
             year,
             month,
@@ -397,10 +398,10 @@ fn iso8601_to_seconds(iso8601_duration: &str) -> anyhow::Result<u64> {
             millisecond,
         } => {
             if year != 0 {
-                bail!("Year long durations are not supported.")
+                return Err(String::from("Year long durations are not supported."));
             }
             if month != 0 {
-                bail!("Month long durations are not supported.")
+                return Err(String::from("Month long durations are not supported."));
             }
             let mut seconds: u64 = if millisecond > 500 { 1 } else { 0 };
             seconds += u64::from(second);
