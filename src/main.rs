@@ -16,7 +16,7 @@ async fn main() {
     );
     let api_secret = config.api_password.expect("api_password_not set.");
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], PORT));
+    let addr = SocketAddr::from(([0, 0, 0, 0], PORT));
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .expect("Failed to bind TCP listener");
