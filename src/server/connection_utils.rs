@@ -1,4 +1,5 @@
 use http_body_util::{BodyExt, Empty, Full, combinators::BoxBody};
+use mime_guess::from_path;
 use reqwest::Url;
 use std::{fmt::Debug, path::Path, str, sync::Arc};
 use urlencoding::decode;
@@ -8,7 +9,10 @@ use hyper::{
     body::{Body, Bytes},
 };
 
-use crate::api::conversion::{ApiClients, convert};
+use crate::{
+    api::conversion::{ApiClients, convert},
+    server::public_utils::get_public_files,
+};
 
 use super::authorization::check_authorization;
 
@@ -61,6 +65,60 @@ where
                         .body(body)
                         .unwrap();
                     Ok(response)
+                }
+            }
+        }
+        (&Method::GET, "platforms") => {
+            let platforms = serde_json::to_string(&get_public_files()).unwrap();
+            let body = full(Bytes::from(platforms));
+            let response = Response::builder()
+                .status(StatusCode::OK)
+                .header("Content-Type", "application/json")
+                .body(body)
+                .unwrap();
+
+            Ok(response)
+        }
+        (&Method::GET, "public") => {
+            let mut path_it = Path::new(req.uri().path()).iter();
+            path_it.next();
+            path_it.next();
+            let maybe_file = path_it.next();
+
+            if maybe_file.is_none() {
+                // falls jemand nur /public aufruft → Bad Request
+                return Ok(bad_request("Filename must be provided"));
+            }
+
+            let rel = maybe_file.unwrap().to_str().unwrap();
+            if rel.contains("..") {
+                return Ok(bad_request("Invalid path"));
+            }
+
+            let file_path = Path::new("public").join(rel);
+            match tokio::fs::read(&file_path).await {
+                Ok(contents) => {
+                    let mime = from_path(&file_path)
+                        .first_or_octet_stream()
+                        .essence_str()
+                        .to_string();
+
+                    let body = full(Bytes::from(contents));
+                    let response = Response::builder()
+                        .status(StatusCode::OK)
+                        .header("Content-Type", mime)
+                        .body(body)
+                        .unwrap();
+                    Ok(response)
+                }
+                Err(_err) => {
+                    let body = full(Bytes::from("File not found"));
+                    let response = Response::builder()
+                        .status(StatusCode::NOT_FOUND)
+                        .header("Content-Type", "text/plain")
+                        .body(body)
+                        .unwrap();
+                    return Ok(response);
                 }
             }
         }
