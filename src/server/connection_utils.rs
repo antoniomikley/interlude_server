@@ -24,18 +24,21 @@ pub async fn handle_connection<B: Body + Debug>(
 where
     <B as Body>::Error: Debug,
 {
-    let headers = req.headers();
-    let authorization_header = headers.get("Authorization");
-    if check_authorization(authorization_header, api_secret).is_err() {
-        return Ok(forbidden("Authorization failed"));
-    }
-
     let mut path_it = Path::new(req.uri().path()).iter();
     let _path_root = path_it.next().unwrap().to_str().unwrap();
     let path_resource = match path_it.next() {
         Some(resource) => resource.to_str().unwrap(),
         _none => return Ok(bad_request("Resource cannot be empty")),
     };
+
+    // Skip authorization for public endpoint
+    if path_resource != "public" {
+        let headers = req.headers();
+        let authorization_header = headers.get("Authorization");
+        if check_authorization(authorization_header, api_secret).is_err() {
+            return Ok(forbidden("Authorization failed"));
+        }
+    }
 
     let base = Url::parse("http://localhost").unwrap();
     let full_url = base.join(&req.uri().to_string()).unwrap();
