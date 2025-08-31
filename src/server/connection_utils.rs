@@ -11,7 +11,7 @@ use hyper::{
 
 use crate::{
     api::conversion::{ApiClients, convert},
-    server::public_utils::get_public_files,
+    server::public_utils::get_platforms,
 };
 
 use super::authorization::check_authorization;
@@ -69,7 +69,7 @@ where
             }
         }
         (&Method::GET, "platforms") => {
-            let platforms = serde_json::to_string(&get_public_files()).unwrap();
+            let platforms = serde_json::to_string(&get_platforms()).unwrap();
             let body = full(Bytes::from(platforms));
             let response = Response::builder()
                 .status(StatusCode::OK)

@@ -57,6 +57,34 @@ GET /convert?link={music_link}
 Authorization: Basic {base64_encoded_api_password}
 ```
 
+#### Verfügbare Plattformen abfragen
+```
+GET /platforms
+```
+
+**Headers:**
+```
+Authorization: Basic {base64_encoded_api_password}
+```
+
+**Response Format:**
+```json
+{
+  "Spotify": "Spotify.jpeg",
+  "Tidal": "Tidal.jpeg"
+}
+```
+
+#### Plattform-Dateien abrufen
+```
+GET /public/{filename}
+```
+
+**Headers:**
+```
+Authorization: Basic {base64_encoded_api_password}
+```
+
 **Beispiele:**
 ```bash
 # API-Passwort kodieren (Beispiel: "mein_secret")
@@ -73,6 +101,14 @@ curl -H "Authorization: Basic $API_TOKEN" \
 # Apple Music Link konvertieren
 curl -H "Authorization: Basic $API_TOKEN" \
      "http://localhost:30002/convert?link=https://music.apple.com/album/track/123456789"
+
+# Verfügbare Plattformen abfragen
+curl -H "Authorization: Basic $API_TOKEN" \
+     "http://localhost:30002/platforms"
+
+# Plattform-Logo abrufen
+curl -H "Authorization: Basic $API_TOKEN" \
+     "http://localhost:30002/public/Spotify.jpeg" -o spotify_logo.jpeg
 ```
 
 **Response Format:**
@@ -96,3 +132,9 @@ curl -H "Authorization: Basic $API_TOKEN" \
 - ✅ **Tidal** - Tracks, Alben  
 - ✅ **Apple Music** - Tracks, Alben
 - ✅ **Deezer** - Tracks, Alben
+
+## 📁 Zusätzliche Features
+
+- 🏷️ **Plattform-Abfrage** - Abrufen verfügbarer Plattformen über `/platforms` Endpoint
+- 🖼️ **Statische Dateien** - Servieren von Plattform-Logos und anderen Assets über `/public/{filename}`
+- 🔒 **Sicherheit** - Alle Endpoints erfordern Authentifizierung

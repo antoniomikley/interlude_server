@@ -1,29 +1,32 @@
 use std::fs;
 use std::path::Path;
 
-use serde_json::json;
+use serde::{Deserialize, Serialize};
 
-pub fn get_public_files() -> serde_json::Map<std::string::String, serde_json::Value> {
-    let public_dir = Path::new("public");
-    let mut files = serde_json::Map::new();
+#[derive(Serialize, Deserialize)]
+pub struct Platform {
+    name: String,
+    url: String,
+    #[serde(rename = "iconUrl")]
+    icon_url: String,
+}
 
-    if let Ok(entries) = fs::read_dir(public_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() {
-                let name = path
-                    .file_stem()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string();
-                let filename = path
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string();
-                files.insert(name, json!(filename));
-            }
-        }
-    }
-    files
+pub fn get_platforms() -> Vec<Platform> {
+    vec![
+        Platform {
+            name: "Spotify".to_string(),
+            url: "https://spotify.com".to_string(),
+            icon_url: "https://interlude.api.leshift.de/public/spotify.png".to_string(),
+        },
+        Platform {
+            name: "Tidal".to_string(),
+            url: "https://tidal.com".to_string(),
+            icon_url: "https://interlude.api.leshift.de/public/tidal.png".to_string(),
+        },
+        Platform {
+            name: "Deezer".to_string(),
+            url: "https://deezer.com".to_string(),
+            icon_url: "https://interlude.api.leshift.de/public/deezer.png".to_string(),
+        },
+    ]
 }
