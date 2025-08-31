@@ -23,10 +23,5 @@ pub fn get_platforms() -> Vec<Platform> {
             url: "https://tidal.com".to_string(),
             icon_url: "https://interlude.api.leshift.de/public/tidal.png".to_string(),
         },
-        Platform {
-            name: "Deezer".to_string(),
-            url: "https://deezer.com".to_string(),
-            icon_url: "https://interlude.api.leshift.de/public/deezer.png".to_string(),
-        },
     ]
 }
