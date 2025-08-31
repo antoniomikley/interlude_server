@@ -59,7 +59,7 @@ Authorization: Basic {base64_encoded_api_password}
 
 #### Verfügbare Plattformen abfragen
 ```
-GET /platforms
+GET /providers
 ```
 
 **Headers:**
@@ -104,7 +104,7 @@ curl -H "Authorization: Basic $API_TOKEN" \
 
 # Verfügbare Plattformen abfragen
 curl -H "Authorization: Basic $API_TOKEN" \
-     "http://localhost:30002/platforms"
+     "http://localhost:30002/providers"
 
 # Plattform-Logo abrufen
 curl -H "Authorization: Basic $API_TOKEN" \
@@ -135,6 +135,6 @@ curl -H "Authorization: Basic $API_TOKEN" \
 
 ## 📁 Zusätzliche Features
 
-- 🏷️ **Plattform-Abfrage** - Abrufen verfügbarer Plattformen über `/platforms` Endpoint
+- 🏷️ **Plattform-Abfrage** - Abrufen verfügbarer Plattformen über `/providers` Endpoint
 - 🖼️ **Statische Dateien** - Servieren von Plattform-Logos und anderen Assets über `/public/{filename}`
 - 🔒 **Sicherheit** - Alle Endpoints erfordern Authentifizierung

@@ -11,7 +11,7 @@ use hyper::{
 
 use crate::{
     api::conversion::{ApiClients, convert},
-    server::public_utils::get_platforms,
+    server::public_utils::get_providers,
 };
 
 use super::authorization::check_authorization;
@@ -71,9 +71,9 @@ where
                 }
             }
         }
-        (&Method::GET, "platforms") => {
-            let platforms = serde_json::to_string(&get_platforms()).unwrap();
-            let body = full(Bytes::from(platforms));
+        (&Method::GET, "providers") => {
+            let providers = serde_json::to_string(&get_providers()).unwrap();
+            let body = full(Bytes::from(providers));
             let response = Response::builder()
                 .status(StatusCode::OK)
                 .header("Content-Type", "application/json")
