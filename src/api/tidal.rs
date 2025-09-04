@@ -58,7 +58,6 @@ struct AlbumAttrs {
     pub title: String,
     #[serde(alias = "barcodeId")]
     pub upc: String,
-    pub duration: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -147,7 +146,6 @@ impl TidalApi {
                 Attributes::Albums(attrs) => albums.push(AlbumData::with_limited_info(
                     &attrs.title,
                     &attrs.upc,
-                    iso8601_to_seconds(&attrs.duration).expect(ISO_DURATION_ERR_MSG),
                 )),
                 Attributes::Artists(attrs) => artists.push(ArtistData::without_albums(&attrs.name)),
             }
@@ -187,7 +185,6 @@ impl TidalApi {
         };
 
         let album_name = album_attrs.title;
-        let album_dur = iso8601_to_seconds(&album_attrs.duration).expect(ISO_DURATION_ERR_MSG);
         let album_upc = album_attrs.upc;
         let mut songs: Vec<SongData> = Vec::new();
         let mut artists: Vec<ArtistData> = Vec::new();
@@ -210,7 +207,6 @@ impl TidalApi {
         Ok(AlbumData::new(
             &album_name,
             &album_upc,
-            album_dur,
             songs,
             artists,
         ))
@@ -289,7 +285,6 @@ impl TidalApi {
                 albums.push(AlbumData::with_limited_info(
                     &album_attrs.title,
                     &album_attrs.upc,
-                    iso8601_to_seconds(&album_attrs.duration).expect(ISO_DURATION_ERR_MSG),
                 ))
             }
 
@@ -379,6 +374,70 @@ impl TidalApi {
         }
 
         Err(ApiError::UnsuccessfulConversion)
+    }
+    const PREFERRED_MAX_IMAGE_SIZE: u16 = 800;
+    const PREFERRED_MIN_IMAGE_SIZE: u16 = 300;
+
+    pub async fn get_cover_art(
+        &self,
+        album_data: &AlbumData,
+        country_code: &CountryCode,
+    ) -> Result<String, ApiError> {
+        #[derive(Deserialize)]
+        struct CoverArtQueryResult {
+            included: Vec<Include>,
+        }
+        #[derive(Deserialize)]
+        struct Include {
+            attributes: IncludeAttrs,
+        }
+        #[derive(Deserialize)]
+        struct IncludeAttrs {
+            files: Vec<ImageFile>,
+        }
+        #[derive(Deserialize)]
+        struct ImageFile {
+            href: String,
+            meta: MetaData,
+        }
+        #[derive(Deserialize)]
+        struct MetaData {
+            width: u16,
+        }
+
+        let response = self
+            .client
+            .get(format!(
+                "{}/albums?countryCode={}&filter[barcodeId]={}&include=coverArt",
+                Self::BASE_URL,
+                country_code.alpha2,
+                album_data.upc
+            ))
+            .bearer_auth(self.get_bearer_token().await?)
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        let result: CoverArtQueryResult = serde_json::from_str(&response)?;
+        if result.included.is_empty() {
+            return Ok(String::from(""));
+        }
+        if result.included[0].attributes.files.is_empty() {
+            return Ok(String::from(""));
+        }
+
+        let images = &result.included[0].attributes.files;
+
+        let mut chosen_image_link = images[0].href.clone();
+        
+        for image in images {
+            if image.meta.width <= Self::PREFERRED_MAX_IMAGE_SIZE && image.meta.width >= Self::PREFERRED_MIN_IMAGE_SIZE {
+                chosen_image_link = image.href.clone();
+            }
+        }
+        
+        Ok(chosen_image_link)
     }
 }
 

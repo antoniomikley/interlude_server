@@ -84,4 +84,23 @@ impl ApiClient {
             Data::Artist(_artist_data) => Err(ApiError::UnsupportedFeature),
         }
     }
+    
+    pub async fn get_artwork(&self, data: &Data, country_code: &CountryCode) -> Result<String, ApiError> {
+        match self {
+            ApiClient::Tidal(client) => match data {
+                Data::Song(song_data) => client.get_cover_art(&song_data.albums[0], country_code).await,
+                Data::Album(album_data) => client.get_cover_art(&album_data, country_code).await,
+                Data::Artist(_) => Err(ApiError::UnsupportedFeature),
+            },
+            ApiClient::Spotify(client) => match data {
+                Data::Song(song_data) => client.get_cover_art(&song_data.albums[0]).await,
+                Data::Album(album_data) => client.get_cover_art(&album_data).await,
+                Data::Artist(_) => Err(ApiError::UnsupportedFeature),
+            },
+            ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
+            ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
+        }
+    }
+
+
 }

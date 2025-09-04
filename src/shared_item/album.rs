@@ -1,4 +1,4 @@
-use super::{artist::ArtistData, norm::normalize_album_title, SongData};
+use super::{SongData, artist::ArtistData, norm::normalize_album_title};
 
 #[derive(Clone, Debug)]
 pub struct AlbumData {
@@ -6,37 +6,27 @@ pub struct AlbumData {
     norm_name: String,
     songs: Vec<SongData>,
     artists: Vec<ArtistData>,
-    duration: u64,
     pub upc: String,
 }
 
 impl AlbumData {
-    pub fn new(
-        name: &str,
-        upc: &str,
-        duration: u64,
-        songs: Vec<SongData>,
-        artists: Vec<ArtistData>,
-    ) -> Self {
+    pub fn new(name: &str, upc: &str, songs: Vec<SongData>, artists: Vec<ArtistData>) -> Self {
         Self {
             display_name: name.to_owned(),
             norm_name: normalize_album_title(name),
             songs,
             artists,
             upc: upc.to_owned(),
-            duration,
         }
     }
-    pub fn with_limited_info(name: &str, upc: &str, duration: u64) -> Self {
+    pub fn with_limited_info(name: &str, upc: &str) -> Self {
         Self {
             display_name: name.to_owned(),
             norm_name: normalize_album_title(name),
             songs: Vec::new(),
             artists: Vec::new(),
             upc: upc.to_owned(),
-            duration,
         }
-
     }
 }
 

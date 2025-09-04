@@ -22,13 +22,6 @@ enum ExternalId {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-struct SongQuery {
-    name: String,
-    duration_ms: u64,
-    external_ids: ExternalId,
-    artists: Vec<Artist>,
-}
-#[derive(Deserialize, Debug, Clone)]
 struct Artist {
     name: String,
 }
@@ -73,6 +66,19 @@ impl SpotifyApi {
         return Ok(token_w.token.clone());
     }
     pub async fn get_song_data(&self, song_link: &ShareLink) -> Result<SongData, ApiError> {
+        #[derive(Deserialize, Debug, Clone)]
+        struct SongQuery {
+            album: AlbumInfo,
+            name: String,
+            duration_ms: u64,
+            external_ids: ExternalId,
+            artists: Vec<Artist>,
+        }
+        #[derive(Deserialize, Debug, Clone)]
+        struct AlbumInfo {
+            id: String,
+        }
+
         let response = self
             .client
             .get(format!(
@@ -95,6 +101,14 @@ impl SpotifyApi {
             _ => return Err(ApiError::IncorrectAttributes),
         };
 
+        let album = self
+            .get_album_data(&ShareLink::new(
+                LinkType::Spotify,
+                ShareObject::Album,
+                &result.album.id,
+                &song_link.country_code,
+            ))
+            .await?;
         let mut artists = Vec::new();
         for artist in result.artists {
             artists.push(ArtistData::new(&artist.name, Vec::new()));
@@ -104,7 +118,7 @@ impl SpotifyApi {
             &result.name,
             &song_isrc,
             song_dur,
-            Vec::new(),
+            vec![album],
             artists,
         ))
     }
@@ -137,7 +151,7 @@ impl SpotifyApi {
             _ => return Err(ApiError::IncorrectAttributes),
         };
 
-        Ok(AlbumData::with_limited_info(&result.name, &upc, 0))
+        Ok(AlbumData::with_limited_info(&result.name, &upc))
     }
 
     pub async fn get_artist_data(&self, _artist_link: ShareLink) -> Result<ArtistData, ApiError> {
@@ -221,5 +235,62 @@ impl SpotifyApi {
             &result.tracks.items[0].id,
             &country_code,
         ))
+    }
+    const PREFERRED_MAX_IMAGE_SIZE: u16 = 800;
+    const PREFERRED_MIN_IMAGE_SIZE: u16 = 300;
+
+    pub async fn get_cover_art(&self, album_data: &AlbumData) -> Result<String, ApiError> {
+        #[derive(Deserialize, Debug, Clone)]
+        struct AlbumSearch {
+            albums: Album,
+        }
+        #[derive(Deserialize, Debug, Clone)]
+        struct Album {
+            items: Vec<AlbumInfo>,
+        }
+
+        #[derive(Deserialize, Debug, Clone)]
+        struct AlbumInfo {
+            images: Vec<Image>,
+        }
+
+        #[derive(Deserialize, Debug, Clone)]
+        struct Image {
+            url: String,
+            width: u16,
+        }
+
+        let response = self
+            .client
+            .get(format!(
+                "{}/search?q=upc:{}&type=album",
+                Self::BASE_URL,
+                album_data.upc
+            ))
+            .bearer_auth(self.get_bearer_token().await?)
+            .send()
+            .await?
+            .text()
+            .await?;
+
+        let result: AlbumSearch = serde_json::from_str(&response)?;
+        if result.albums.items.len() == 0 {
+            return Err(ApiError::UnsuccessfulConversion);
+        }
+
+        let images = result.albums.items[0].images.clone();
+        if images.len() == 0 {
+            return Ok(String::from(""));
+        }
+
+        let mut chosen_image_link = images[0].url.clone();
+        for image in &images {
+            if image.width <= Self::PREFERRED_MAX_IMAGE_SIZE
+                && image.width >= Self::PREFERRED_MIN_IMAGE_SIZE
+            {
+                chosen_image_link = image.url.clone();
+            }
+        }
+        Ok(chosen_image_link)
     }
 }

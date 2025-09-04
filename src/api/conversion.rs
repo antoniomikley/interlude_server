@@ -48,13 +48,13 @@ impl Link {
         }
     }
 
-    pub fn from_link_and_data(link: &ShareLink, data: &Data) -> Self {
+    pub fn from_link_and_data(link: &ShareLink, data: &Data, artwork: &str) -> Self {
         Self {
             provider: link.link_type.to_string(),
             r#type: data.get_type(),
             display_name: data.get_display_name(),
             url: link.to_url(),
-            artwork: String::from(""),
+            artwork: artwork.to_owned(),
         }
     }
 }
@@ -141,7 +141,8 @@ pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> Result<String, 
         Some(client) => {
             let spotify_link = client.data_to_link(&data, &share_link.country_code).await?;
             let spotify_data = client.link_to_data(&spotify_link).await?;
-            Link::from_link_and_data(&spotify_link, &spotify_data)
+            let image_link = client.get_artwork(&data, &share_link.country_code).await?;
+            Link::from_link_and_data(&spotify_link, &spotify_data, &image_link)
         }
         None => Link::empty_for(LinkType::Spotify),
     };
@@ -150,7 +151,8 @@ pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> Result<String, 
         Some(client) => {
             let tidal_link = client.data_to_link(&data, &share_link.country_code).await?;
             let tidal_data = client.link_to_data(&tidal_link).await?;
-            Link::from_link_and_data(&tidal_link, &tidal_data)
+            let image_link = client.get_artwork(&data, &share_link.country_code).await?;
+            Link::from_link_and_data(&tidal_link, &tidal_data, &image_link)
         }
         None => Link::empty_for(LinkType::Tidal),
     };
@@ -159,7 +161,7 @@ pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> Result<String, 
         Some(client) => {
             let deezer_link = client.data_to_link(&data, &share_link.country_code).await?;
             let deezer_data = client.link_to_data(&deezer_link).await?;
-            Link::from_link_and_data(&deezer_link, &deezer_data)
+            Link::from_link_and_data(&deezer_link, &deezer_data, "")
         }
         None => Link::empty_for(LinkType::Deezer),
     };
@@ -168,7 +170,7 @@ pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> Result<String, 
         Some(client) => {
             let apple_music_link = client.data_to_link(&data, &share_link.country_code).await?;
             let apple_music_data = client.link_to_data(&apple_music_link).await?;
-            Link::from_link_and_data(&apple_music_link, &apple_music_data)
+            Link::from_link_and_data(&apple_music_link, &apple_music_data, "")
         }
         None => Link::empty_for(LinkType::AppleMusic),
     };

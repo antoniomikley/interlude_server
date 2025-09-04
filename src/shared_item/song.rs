@@ -6,7 +6,7 @@ pub struct SongData {
     norm_name: String,
     pub isrc: String,
     duration: u64,
-    albums: Vec<AlbumData>,
+    pub albums: Vec<AlbumData>,
     artists: Vec<ArtistData>,
 }
 
