@@ -1,3 +1,5 @@
+use hyper::header::LOCATION;
+use reqwest::{Client, redirect::Policy};
 use rust_iso3166::CountryCode;
 use thiserror::Error;
 
@@ -9,6 +11,8 @@ pub enum ShareLinkError {
     NotAShareLink,
     #[error("The provided share link is invalid or malformed.")]
     MalformedOrInvalidLink,
+    #[error("Could not parse Deezer link")]
+    ParseDeezerLink,
 }
 
 #[derive(Clone, Debug, Copy, PartialEq)]
@@ -82,9 +86,32 @@ impl ShareLink {
         }
     }
 
-    pub fn from_url(url: &str) -> Result<ShareLink, ShareLinkError> {
+    pub async fn from_url(url: &str) -> Result<ShareLink, ShareLinkError> {
         let mut country_code: Option<CountryCode> = None;
         let mut id = String::new();
+
+        let mut url = url.to_owned();
+        if url.starts_with("https://link.deezer.com/s/") {
+            let client = Client::builder().redirect(Policy::none()).build().unwrap();
+            let response = client
+                .get(url)
+                .send()
+                .await
+                .map_err(|_| ShareLinkError::ParseDeezerLink)?
+                .headers()
+                .get(LOCATION)
+                .unwrap()
+                .clone();
+            let extracted_link = urlencoding::decode(
+                &response.to_str().unwrap()[29..]
+                    .split_once("%3Fhost")
+                    .unwrap()
+                    .0,
+            )
+            .unwrap()
+            .into_owned();
+            url = extracted_link;
+        }
 
         let mut parts = url.split('/');
         match parts.next() {
@@ -104,6 +131,7 @@ impl ShareLink {
                 "open.spotify.com" => Some(LinkType::Spotify),
                 "tidal.com" => Some(LinkType::Tidal),
                 "music.apple.com" => Some(LinkType::AppleMusic),
+                "www.deezer.com" => Some(LinkType::Deezer),
                 _ => return Err(ShareLinkError::NotAShareLink),
             },
         };
@@ -147,7 +175,27 @@ impl ShareLink {
                 _ => {}
             },
             Some(LinkType::Deezer) => {
-                todo!();
+                let parts_backup = parts.clone();
+                match parts.next() {
+                    Some(text) => {
+                        if text.len() != 2 {
+                            match text {
+                                "track" | "album" | "artist" => {
+                                    parts = parts_backup;
+                                    country_code = Some(rust_iso3166::from_alpha2("US").unwrap());
+                                }
+                                _ => return Err(ShareLinkError::MalformedOrInvalidLink),
+                            }
+                        } else {
+                            country_code =
+                                match rust_iso3166::from_alpha2(&text.to_ascii_uppercase()) {
+                                    Some(cc) => Some(cc),
+                                    None => return Err(ShareLinkError::MalformedOrInvalidLink),
+                                };
+                        }
+                    }
+                    None => return Err(ShareLinkError::MalformedOrInvalidLink),
+                }
             }
             None => {} // Cannot be None at this point. Function failes already before.
         }

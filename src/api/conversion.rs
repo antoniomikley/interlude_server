@@ -124,7 +124,7 @@ impl ApiClients {
 }
 
 pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> Result<String, ConversionError> {
-    let share_link = ShareLink::from_url(&url)?;
+    let share_link = ShareLink::from_url(&url).await?;
     let supported_apis = api_clients.get_supported_clients();
 
     if !supported_apis.contains_key(&share_link.link_type.to_string()) {
