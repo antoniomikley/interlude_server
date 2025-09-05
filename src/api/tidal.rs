@@ -328,12 +328,8 @@ impl TidalApi {
 
         let results: FilterQuery = serde_json::from_str(&response)?;
         for item in results.data {
-            let share_link =
-                ShareLink::new(LinkType::Tidal, ShareObject::Song, &item.id, country_code);
-            let sd = self.get_song_data(&share_link).await?;
-            if sd == song_data.clone() {
+            let share_link = ShareLink::new(LinkType::Tidal, ShareObject::Song, &item.id, country_code);
                 return Ok(share_link);
-            }
         }
         Err(ApiError::UnsuccessfulConversion)
     }
