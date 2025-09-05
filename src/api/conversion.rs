@@ -38,17 +38,7 @@ struct Link {
 }
 
 impl Link {
-    pub fn empty_for(provider: LinkType) -> Self {
-        Self {
-            provider: provider.to_string(),
-            r#type: String::new(),
-            display_name: String::new(),
-            url: String::new(),
-            artwork: String::new(),
-        }
-    }
-
-    pub fn from_link_and_data(link: &ShareLink, data: &Data, artwork: &str) -> Self {
+    pub fn new(link: &ShareLink, data: &Data, artwork: &str) -> Self {
         Self {
             provider: link.link_type.to_string(),
             r#type: data.get_type(),
@@ -142,9 +132,13 @@ pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> Result<String, 
             let spotify_link = client.data_to_link(&data, &share_link.country_code).await?;
             let spotify_data = client.link_to_data(&spotify_link).await?;
             let image_link = client.get_artwork(&data, &share_link.country_code).await?;
-            Link::from_link_and_data(&spotify_link, &spotify_data, &image_link)
+            Some(Link::new(
+                &spotify_link,
+                &spotify_data,
+                &image_link,
+            ))
         }
-        None => Link::empty_for(LinkType::Spotify),
+        None => None,
     };
 
     let tidal_result = match supported_apis.get(&LinkType::Tidal.to_string()) {
@@ -152,9 +146,13 @@ pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> Result<String, 
             let tidal_link = client.data_to_link(&data, &share_link.country_code).await?;
             let tidal_data = client.link_to_data(&tidal_link).await?;
             let image_link = client.get_artwork(&data, &share_link.country_code).await?;
-            Link::from_link_and_data(&tidal_link, &tidal_data, &image_link)
+            Some(Link::new(
+                &tidal_link,
+                &tidal_data,
+                &image_link,
+            ))
         }
-        None => Link::empty_for(LinkType::Tidal),
+        None => None,
     };
 
     let deezer_result = match supported_apis.get(&LinkType::Deezer.to_string()) {
@@ -162,27 +160,43 @@ pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> Result<String, 
             let deezer_link = client.data_to_link(&data, &share_link.country_code).await?;
             let deezer_data = client.link_to_data(&deezer_link).await?;
             let image_link = client.get_artwork(&data, &share_link.country_code).await?;
-            Link::from_link_and_data(&deezer_link, &deezer_data, &image_link)
+            Some(Link::new(
+                &deezer_link,
+                &deezer_data,
+                &image_link,
+            ))
         }
-        None => Link::empty_for(LinkType::Deezer),
+        None => None,
     };
 
     let apple_music_result = match supported_apis.get(&LinkType::AppleMusic.to_string()) {
         Some(client) => {
             let apple_music_link = client.data_to_link(&data, &share_link.country_code).await?;
             let apple_music_data = client.link_to_data(&apple_music_link).await?;
-            Link::from_link_and_data(&apple_music_link, &apple_music_data, "")
+            Some(Link::new(
+                &apple_music_link,
+                &apple_music_data,
+                "",
+            ))
         }
-        None => Link::empty_for(LinkType::AppleMusic),
+        None => None,
     };
 
-    Ok(serde_json::to_string(&ConversionResults {
-        results: vec![
-            spotify_result,
-            tidal_result,
-            deezer_result,
-            apple_music_result,
-        ],
-    })
-    .expect("Conversion result should always be valid."))
+    let mut results: Vec<Link> = Vec::new();
+
+    if spotify_result.is_some() {
+        results.push(spotify_result.unwrap());
+    }
+    if tidal_result.is_some() {
+        results.push(tidal_result.unwrap());
+    }
+    if deezer_result.is_some() {
+        results.push(deezer_result.unwrap());
+    }
+    if apple_music_result.is_some() {
+        results.push(apple_music_result.unwrap());
+    }
+
+    Ok(serde_json::to_string(&ConversionResults { results })
+        .expect("Conversion result should always be valid."))
 }
