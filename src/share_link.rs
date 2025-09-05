@@ -223,9 +223,6 @@ impl ShareLink {
 
         match parts.next() {
             Some(text) => {
-                if parts.next().is_some() {
-                    return Err(ShareLinkError::MalformedOrInvalidLink);
-                }
                 for c in text.chars() {
                     match c {
                         '?' => {
