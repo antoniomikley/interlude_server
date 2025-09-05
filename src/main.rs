@@ -5,8 +5,6 @@ use interlude::{
 };
 use std::{net::SocketAddr, sync::Arc};
 
-const PORT: u16 = 5000;
-
 #[tokio::main]
 async fn main() {
     let config = Config::read();
@@ -16,7 +14,7 @@ async fn main() {
     );
     let api_secret = config.api_password.expect("api_password_not set.");
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], PORT));
+    let addr = SocketAddr::from((config.listen_address_ipv4, config.listen_port));
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .expect("Failed to bind TCP listener");
