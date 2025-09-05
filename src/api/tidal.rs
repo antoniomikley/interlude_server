@@ -143,10 +143,9 @@ impl TidalApi {
         for include in results.included.expect(INCLUDE_ERR_MSG) {
             match include.attributes {
                 Attributes::Tracks(_) => return Err(ApiError::IncorrectAttributes),
-                Attributes::Albums(attrs) => albums.push(AlbumData::with_limited_info(
-                    &attrs.title,
-                    &attrs.upc,
-                )),
+                Attributes::Albums(attrs) => {
+                    albums.push(AlbumData::with_limited_info(&attrs.title, &attrs.upc))
+                }
                 Attributes::Artists(attrs) => artists.push(ArtistData::without_albums(&attrs.name)),
             }
         }
@@ -204,12 +203,7 @@ impl TidalApi {
             }
         }
 
-        Ok(AlbumData::new(
-            &album_name,
-            &album_upc,
-            songs,
-            artists,
-        ))
+        Ok(AlbumData::new(&album_name, &album_upc, songs, artists))
     }
 
     pub async fn get_artist_data(&self, artist_link: ShareLink) -> Result<ArtistData, ApiError> {
@@ -364,17 +358,18 @@ impl TidalApi {
             .await?;
 
         let results: FilterQuery = serde_json::from_str(&response)?;
-        for item in results.data {
-            let share_link =
-                ShareLink::new(LinkType::Tidal, ShareObject::Album, &item.id, &country_code);
-            let ad = self.get_album_data(&share_link).await.unwrap();
-            if &ad == album_data {
-                return Ok(share_link);
-            }
+        if results.data.len() == 0 {
+            Err(ApiError::UnsuccessfulConversion)
+        } else {
+            Ok(ShareLink::new(
+                LinkType::Tidal,
+                ShareObject::Album,
+                &results.data[0].id,
+                &country_code,
+            ))
         }
-
-        Err(ApiError::UnsuccessfulConversion)
     }
+
     const PREFERRED_MAX_IMAGE_SIZE: u16 = 800;
     const PREFERRED_MIN_IMAGE_SIZE: u16 = 300;
 
@@ -430,13 +425,15 @@ impl TidalApi {
         let images = &result.included[0].attributes.files;
 
         let mut chosen_image_link = images[0].href.clone();
-        
+
         for image in images {
-            if image.meta.width <= Self::PREFERRED_MAX_IMAGE_SIZE && image.meta.width >= Self::PREFERRED_MIN_IMAGE_SIZE {
+            if image.meta.width <= Self::PREFERRED_MAX_IMAGE_SIZE
+                && image.meta.width >= Self::PREFERRED_MIN_IMAGE_SIZE
+            {
                 chosen_image_link = image.href.clone();
             }
         }
-        
+
         Ok(chosen_image_link)
     }
 }

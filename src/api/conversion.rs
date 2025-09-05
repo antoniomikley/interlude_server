@@ -86,7 +86,7 @@ impl ApiClients {
         Self {
             spotify,
             tidal,
-            deezer: None,
+            deezer: Some(DeezerApi::new(client)),
             apple_music: None,
         }
     }
@@ -161,7 +161,8 @@ pub async fn convert(url: &str, api_clients: Arc<ApiClients>) -> Result<String, 
         Some(client) => {
             let deezer_link = client.data_to_link(&data, &share_link.country_code).await?;
             let deezer_data = client.link_to_data(&deezer_link).await?;
-            Link::from_link_and_data(&deezer_link, &deezer_data, "")
+            let image_link = client.get_artwork(&data, &share_link.country_code).await?;
+            Link::from_link_and_data(&deezer_link, &deezer_data, &image_link)
         }
         None => Link::empty_for(LinkType::Deezer),
     };

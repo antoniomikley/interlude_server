@@ -67,7 +67,7 @@ impl ShareLink {
                 todo!()
             }
             LinkType::Deezer => {
-                todo!()
+                return format!("https://www.deezer.com/{}/{}", obj, self.id);
             }
         }
     }
@@ -240,6 +240,7 @@ impl ShareLink {
             }
             None => return Err(ShareLinkError::MalformedOrInvalidLink),
         }
+
         Ok(ShareLink {
             link_type: link_type.unwrap(),
             country_code: country_code.unwrap(),

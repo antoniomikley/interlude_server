@@ -49,13 +49,13 @@ impl ApiClient {
             ShareObject::Song => match self {
                 ApiClient::Spotify(client) => Ok(Data::Song(client.get_song_data(&link).await?)),
                 ApiClient::Tidal(client) => Ok(Data::Song(client.get_song_data(&link).await?)),
-                ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
+                ApiClient::Deezer(client) => Ok(Data::Song(client.get_song_data(&link).await?)),
                 ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
             },
             ShareObject::Album => match self {
                 ApiClient::Spotify(client) => Ok(Data::Album(client.get_album_data(&link).await?)),
                 ApiClient::Tidal(client) => Ok(Data::Album(client.get_album_data(&link).await?)),
-                ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
+                ApiClient::Deezer(client) => Ok(Data::Album(client.get_album_data(&link).await?)),
                 ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
             },
             ShareObject::Artist => Err(ApiError::UnsupportedFeature),
@@ -70,7 +70,7 @@ impl ApiClient {
             Data::Song(song_data) => match self {
                 ApiClient::Spotify(client) => client.get_song_link(&song_data, country_code).await,
                 ApiClient::Tidal(client) => client.get_song_link(&song_data, country_code).await,
-                ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
+                ApiClient::Deezer(client) => client.get_song_link(&song_data, country_code).await,
                 ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
             },
             Data::Album(album_data) => match self {
@@ -78,17 +78,25 @@ impl ApiClient {
                     client.get_album_link(&album_data, country_code).await
                 }
                 ApiClient::Tidal(client) => client.get_album_link(&album_data, country_code).await,
-                ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
+                ApiClient::Deezer(client) => client.get_album_link(&album_data, country_code).await,
                 ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
             },
             Data::Artist(_artist_data) => Err(ApiError::UnsupportedFeature),
         }
     }
-    
-    pub async fn get_artwork(&self, data: &Data, country_code: &CountryCode) -> Result<String, ApiError> {
+
+    pub async fn get_artwork(
+        &self,
+        data: &Data,
+        country_code: &CountryCode,
+    ) -> Result<String, ApiError> {
         match self {
             ApiClient::Tidal(client) => match data {
-                Data::Song(song_data) => client.get_cover_art(&song_data.albums[0], country_code).await,
+                Data::Song(song_data) => {
+                    client
+                        .get_cover_art(&song_data.albums[0], country_code)
+                        .await
+                }
                 Data::Album(album_data) => client.get_cover_art(&album_data, country_code).await,
                 Data::Artist(_) => Err(ApiError::UnsupportedFeature),
             },
@@ -97,10 +105,12 @@ impl ApiClient {
                 Data::Album(album_data) => client.get_cover_art(&album_data).await,
                 Data::Artist(_) => Err(ApiError::UnsupportedFeature),
             },
-            ApiClient::Deezer(_) => Err(ApiError::UnsupportedFeature),
+            ApiClient::Deezer(client) => match data {
+                Data::Song(song_data) => client.get_cover_art(&song_data.albums[0]).await,
+                Data::Album(album_data) => client.get_cover_art(&album_data).await,
+                Data::Artist(_) => Err(ApiError::UnsupportedFeature),
+            },
             ApiClient::AppleMusic(_) => Err(ApiError::UnsupportedFeature),
         }
     }
-
-
 }
