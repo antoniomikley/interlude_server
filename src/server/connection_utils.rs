@@ -1,7 +1,7 @@
 use http_body_util::{BodyExt, Empty, Full, combinators::BoxBody};
 use mime_guess::from_path;
 use reqwest::Url;
-use std::{fmt::Debug, path::Path, str, sync::Arc};
+use std::{fmt::Debug, path::Path, sync::Arc};
 use urlencoding::decode;
 
 use hyper::{
