@@ -24,5 +24,11 @@ pub fn get_providers() -> Vec<Provider> {
             logo_url: "https://interlude.api.leshift.de/public/tidal_logo.png".to_string(),
             icon_url: "https://interlude.api.leshift.de/public/tidal_icon.png".to_string(),
         },
+        Provider {
+            name: "Deezer".to_string(),
+            url: "https://www.deezer.com".to_string(),
+            logo_url: "https://interlude.api.leshift.de/public/deezer_logo.png".to_string(),
+            icon_url: "https://interlude.api.leshift.de/public/deezer_icon.png".to_string(),
+        },
     ]
 }
