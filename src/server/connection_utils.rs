@@ -20,6 +20,7 @@ pub async fn handle_connection<B: Body + Debug>(
     req: Request<B>,
     api_clients: Arc<ApiClients>,
     api_secret: &str,
+    ext_addr: &str,
 ) -> HyperResult<Response<BoxBody<Bytes, HyperError>>>
 where
     <B as Body>::Error: Debug,
@@ -72,7 +73,7 @@ where
             }
         }
         (&Method::GET, "providers") => {
-            let providers = serde_json::to_string(&get_providers()).unwrap();
+            let providers = serde_json::to_string(&get_providers(ext_addr)).unwrap();
             let body = full(Bytes::from(providers));
             let response = Response::builder()
                 .status(StatusCode::OK)

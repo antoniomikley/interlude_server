@@ -36,6 +36,7 @@ pub struct Config {
     pub api_password: Option<String>,
     pub listen_address_ipv4: Ipv4Addr,
     pub listen_port: u16,
+    pub external_addr: Option<String>,
 }
 
 impl Config {
@@ -61,6 +62,7 @@ impl Config {
             api_password: Some(String::from("")),
             listen_address_ipv4: Ipv4Addr::from_str("0.0.0.0").unwrap(),
             listen_port: 5000,
+            external_addr: Some(String::from("0.0.0.0:5000"))
         }
     }
 }

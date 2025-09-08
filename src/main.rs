@@ -13,23 +13,26 @@ async fn main() {
         ApiClients::new(&client, config.credentials.expect("No credentials found.")).await,
     );
     let api_secret = config.api_password.expect("api_password_not set.");
-
+    let ext_addr = config.external_addr.expect("external_addr is not set.");
     let addr = SocketAddr::from((config.listen_address_ipv4, config.listen_port));
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .expect("Failed to bind TCP listener");
 
     loop {
+        let api_secret = api_secret.clone();
+        let ext_addr = ext_addr.clone();
         let api_clients = Arc::clone(&api_clients);
         let (stream, _) = listener.accept().await.unwrap();
         let io = TokioIo::new(stream);
-        let api_secret = api_secret.clone();
 
         tokio::spawn(async move {
             if let Err(err) = http1::Builder::new()
                 .serve_connection(
                     io,
-                    service_fn(|req| handle_connection(req, api_clients.clone(), &api_secret)),
+                    service_fn(|req| {
+                        handle_connection(req, api_clients.clone(), &api_secret, &ext_addr)
+                    }),
                 )
                 .await
             {

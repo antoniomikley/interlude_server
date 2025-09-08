@@ -10,25 +10,25 @@ pub struct Provider {
     icon_url: String,
 }
 
-pub fn get_providers() -> Vec<Provider> {
+pub fn get_providers(ext_addr: &str) -> Vec<Provider> {
     vec![
         Provider {
             name: "Spotify".to_string(),
             url: "https://spotify.com".to_string(),
-            logo_url: "https://interlude.api.leshift.de/public/spotify_logo.png".to_string(),
-            icon_url: "https://interlude.api.leshift.de/public/spotify_icon.png".to_string(),
+            logo_url: format!("{}/public/spotify_logo.png", ext_addr),
+            icon_url: format!("{}/public/spotify_icon.png", ext_addr),
         },
         Provider {
             name: "Tidal".to_string(),
             url: "https://tidal.com".to_string(),
-            logo_url: "https://interlude.api.leshift.de/public/tidal_logo.png".to_string(),
-            icon_url: "https://interlude.api.leshift.de/public/tidal_icon.png".to_string(),
+            logo_url: format!("{}/public/tidal_logo.png", ext_addr),
+            icon_url: format!("{}/public/tidal_icon.png", ext_addr),
         },
         Provider {
             name: "Deezer".to_string(),
             url: "https://www.deezer.com".to_string(),
-            logo_url: "https://interlude.api.leshift.de/public/deezer_logo.png".to_string(),
-            icon_url: "https://interlude.api.leshift.de/public/deezer_icon.png".to_string(),
+            logo_url: format!("{}/public/deezer_logo.png", ext_addr),
+            icon_url: format!("{}/public/deezer_icon.png", ext_addr),
         },
     ]
 }
