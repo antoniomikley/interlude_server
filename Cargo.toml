@@ -3,6 +3,8 @@ name = "interlude"
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
+repository = "https://github.com/antoniomikley/interlude_server"
+description = "Convert share links of different music streaming services."
 
 [dependencies]
 rust_iso3166 = "0.1"
